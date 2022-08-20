@@ -6,11 +6,13 @@ from tflite_support.task import core
 from tflite_support.task import processor
 from tflite_support.task import vision
 import utils
+import telegram
+import threading
 
-model = 'thiefDetect.tflite'
-enable_edgetpu = False
-#model = 'thiefDetect_edgetpu.tflite'
-#enable_edgetpu = True
+model = 'thiefmodel2_edgetpu.tflite'
+enable_edgetpu = True
+#model = 'thiefmodel2.tflite'
+#enable_edgetpu = False
 num_threads = 4
 
 angle = 90
@@ -39,10 +41,20 @@ font_size = 1
 font_thickness = 1
 
 base_options = core.BaseOptions(file_name=model, use_coral=enable_edgetpu, num_threads=num_threads)
-detection_options = processor.DetectionOptions(max_results=1, score_threshold=0.8)
+detection_options = processor.DetectionOptions(max_results=1, score_threshold=0.6)
 options = vision.ObjectDetectorOptions(base_options=base_options, detection_options=detection_options)
 detector = vision.ObjectDetector.create_from_options(options)
 
+telegram_notify = telegram.Bot("api_key")
+message = ""
+
+
+def sendTeleNoti():
+	try:
+		message = ""
+		telegram_notify.send_message(chat_id="chat_id", text=message, parse_mode='Markdown')
+	except:
+		pass
 class Video(object):
 	def __init__(self):
 		self.video = cv2.VideoCapture(camera_id)
@@ -73,20 +85,23 @@ class Video(object):
 
 		if len(detection_result.detections) == 1:
 			timeAfterHandle = time.time()
-			x1 = detection_result.detections[0].bounding_box.origin_x
-			x2 = x1 + detection_result.detections[0].bounding_box.width
-			center = (x1 + x2) / 2
-			if center < 280:
-				if angle > 0 and angle < 180:
-					angle -= 1
-				else:
-					print("Out of Angle")
-			if center > 360:
-				if angle > 0 and angle < 180:
-					angle += 1
-				else:
-					print("Out of Angle")
-
+			if detection_result.detections[0].classes[0].class_name == "ten_vat_the_muon_nhan_dien":
+				tele_thread = threading.Thread(target=sendTeleNoti)
+				tele_thread.start()
+				x1 = detection_result.detections[0].bounding_box.origin_x
+				x2 = x1 + detection_result.detections[0].bounding_box.width
+				center = (x1 + x2) / 2
+				if center < 280:
+					if angle > 0 and angle < 180:
+						angle -= 1
+					else:
+						print("Out of Angle")
+				if center > 360:
+					if angle > 0 and angle < 180:
+						angle += 1
+					else:
+						print("Out of Angle")
+		
 		pwm.setRotationAngle(1,angle)
 		
 		handleTime = timeAfterHandle - timeBeforeHandle
